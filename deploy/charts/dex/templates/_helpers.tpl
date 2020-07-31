@@ -55,9 +55,20 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "dex.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "dex.fullname" .) .Values.serviceAccount.name }}
+{{- if .Values.rbac.enabled }}
+{{- default (include "dex.fullname" .) .Values.rbac.serviceAccountName }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- default "default" .Values.serviceAccount.serviceAccountName }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "dex.host" -}}
+{{- if .Values.ingress.enabled }}
+{{- index (index .Values.ingress.hosts 0) "host" }}
+{{- else }}
+{{- include "dex.fullname" . }}
 {{- end }}
 {{- end }}
