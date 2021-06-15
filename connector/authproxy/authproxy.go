@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/dexidp/dex/connector"
 	"github.com/dexidp/dex/pkg/log"
@@ -17,7 +18,9 @@ import (
 // identity with the HTTP header X-Remote-User as verified email.
 type Config struct {
 	UserHeader         string `json:"userHeader"`         // the header whose value is the user's email
-	UserGroupsEndpoint string `json:"userGroupsEndpoint"` // an endpoint where Dex can find Group claims for the user
+	UserGroupsBasePath string `json:"userGroupsBasePath"` // base path to an endpoint where Dex can find Group claims for the user.
+	// the username will be appended to the end of the base path with leading `/` if none exists
+	// ie. a basepath of "localhost/api/roles" becomes "localhost/api/roles/johndoe"
 }
 
 // Open returns an authentication strategy which requires no user interaction.
@@ -27,16 +30,19 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 		userHeader = "X-Remote-User"
 	}
 
-	userGroupsEndpoint := c.UserGroupsEndpoint
-
-	return &callback{userHeader: userHeader, userGroupsEndpoint: userGroupsEndpoint, logger: logger, pathSuffix: "/" + id}, nil
+	return &callback{
+		userHeader:         userHeader,
+		userGroupsBasePath: c.UserGroupsBasePath,
+		logger:             logger,
+		pathSuffix:         "/" + id,
+	}, nil
 }
 
 // Callback is a connector which returns an identity with the HTTP header
 // X-Remote-User as verified email.
 type callback struct {
 	userHeader         string
-	userGroupsEndpoint string
+	userGroupsBasePath string
 	logger             log.Logger
 	pathSuffix         string
 }
@@ -63,10 +69,10 @@ func (m *callback) HandleCallback(s connector.Scopes, r *http.Request) (connecto
 
 	var groups []string
 
-	if m.userGroupsEndpoint != "" {
-		resp, err := http.Get(fmt.Sprintf(m.userGroupsEndpoint, remoteUser))
+	if m.userGroupsBasePath != "" {
+		resp, err := http.Get(path.Join(m.userGroupsBasePath, remoteUser))
 		if err != nil {
-			return connector.Identity{}, fmt.Errorf("request to group claims endpoint %s failed: %s", m.userGroupsEndpoint, err)
+			return connector.Identity{}, fmt.Errorf("request to group claims endpoint %s failed: %s", m.userGroupsBasePath, err)
 		}
 
 		var groupResponse struct {
@@ -75,7 +81,7 @@ func (m *callback) HandleCallback(s connector.Scopes, r *http.Request) (connecto
 
 		err = json.NewDecoder(resp.Body).Decode(&groupResponse)
 		if err != nil {
-			return connector.Identity{}, fmt.Errorf("request to group claims endpoint %s failed: %s", m.userGroupsEndpoint, err)
+			return connector.Identity{}, fmt.Errorf("request to group claims endpoint %s failed: %s", m.userGroupsBasePath, err)
 		}
 		groups = groupResponse.Groups
 	}
