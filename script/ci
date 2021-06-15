@@ -1,0 +1,67 @@
+#!/bin/bash
+
+set -euo pipefail
+
+VERSION="$(git rev-parse --short HEAD)"
+IMAGE_REPO="gcr.io/sq-containers-production/deployable/sq-dex"
+
+# choose correct image name
+if [[ "${GIT_BRANCH:-}" == "master" ]]; then
+    IMAGE_NAME="${IMAGE_REPO}:${VERSION}-deployable"
+else
+    IMAGE_NAME="${IMAGE_REPO}:${VERSION}-canary"
+fi
+
+echo "### building docker image for real use"
+docker build -f square/Dockerfile -t "${IMAGE_NAME}" .
+
+echo "### installing gcloud and jq"
+GCLOUD="https://hoistrepo-api.vip.sjc1b.square/download/user-submitted-artifacts/google-cloud-sdk/google-cloud-sdk-284.0.0-linux-x86_64.tar.gz"
+curl --max-time 60 -Lo gcloud.tgz "${GCLOUD}"
+tar -xzf gcloud.tgz
+
+curl --max-time 60 -Lo jq "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64"
+chmod 755 jq
+
+echo "### testing of a deployable tagged image for this version already exists"
+SECRET=/data/app/kochiku-worker/.docker/kochiku-gcr-docker-login
+GCLOUD=./google-cloud-sdk/bin/gcloud
+if [[ -f "${SECRET}" ]]; then
+    "${GCLOUD}" auth activate-service-account --key-file "${SECRET}"
+else
+    echo "WARNING: no secret for docker login ... gcloud may fail"
+fi
+deployable_sha_in_gcr=$("${GCLOUD}" container images list-tags \
+                                              --filter="tags:${VERSION}-deployable" "${IMAGE_REPO}" \
+                                              --format=json \
+                              | ./jq -r '.[].digest')
+
+echo "DEBUG: deployable_sha_in_gcr is ${deployable_sha_in_gcr}"
+
+if [[ "${GIT_BRANCH:-}" == "master" ]]; then
+    if [[ -n "${deployable_sha_in_gcr}" ]]; then
+        # if we're on master, and if our image name already exists in GCR, fail the build
+        echo "Deployable tag already exists in GCR. Failing build"
+        echo "Image Repo: ${IMAGE_REPO}"
+        echo "Image Version: ${VERSION}-deployable"
+        exit 1
+    else
+        echo "### SUCCESS. Pushing deployable docker image ${IMAGE_NAME}"
+        docker push "${IMAGE_NAME}"
+        echo "### SUCCESS"
+    fi
+else
+    # if we're testing a PR, push the image anyway, but fail the build so the author knows to bump version
+    docker push "${IMAGE_NAME}"
+    if [[ -n "${deployable_sha_in_gcr}" ]]; then
+        echo "Deployable Tag already exists in GCR. We pushed canary anyway, but will fail the build"
+        echo "Image Repo: ${IMAGE_REPO}"
+        echo "Image Version: ${VERSION}-deployable"
+        echo "please bump the version"
+        echo "in the mean time, this image was pushed to gcr:"
+        echo "${IMAGE_NAME}"
+        exit 1
+    else
+        echo "### SUCCESS"
+    fi
+fi
