@@ -36,7 +36,11 @@ RUN wget -O /usr/local/bin/gomplate \
   "https://github.com/hairyhenderson/gomplate/releases/download/${GOMPLATE_VERSION}/gomplate_${TARGETOS:-linux}-${TARGETARCH:-amd64}${TARGETVARIANT}" \
   && chmod +x /usr/local/bin/gomplate
 
-FROM gcr.io/sq-containers-production/base/runtime-centos7:latest AS sq-base-image
+FROM debian:buster
+
+RUN apt-get update -y \
+    && apt-get upgrade -y \
+    && apt-get install wget -y
 
 RUN mkdir -p /var/dex
 RUN chown -R 1001:1001 /var/dex
