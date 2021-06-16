@@ -70,9 +70,15 @@ func (m *callback) HandleCallback(s connector.Scopes, r *http.Request) (connecto
 	var groups []string
 
 	if m.userGroupsBasePath != "" {
-		resp, err := http.Get(path.Join(m.userGroupsBasePath, remoteUser))
+		u, err := url.Parse(m.userGroupsBasePath)
 		if err != nil {
-			return connector.Identity{}, fmt.Errorf("request to group claims endpoint %s failed: %s", m.userGroupsBasePath, err)
+			return connector.Identity{}, fmt.Errorf("parsing group claims endpoint [%s] failed: %s", m.userGroupsBasePath, err)
+		}
+
+		u.Path = path.Join(u.Path, remoteUser)
+		resp, err := http.Get(u.String())
+		if err != nil {
+			return connector.Identity{}, fmt.Errorf("request to group claims endpoint [%s] failed: %s", m.userGroupsBasePath, err)
 		}
 
 		var groupResponse struct {
