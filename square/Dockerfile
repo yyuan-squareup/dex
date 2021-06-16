@@ -1,10 +1,8 @@
-FROM golang:1.16.5-alpine3.13 AS builder
+FROM golang:1.16.5-buster AS builder
 
 LABEL maintainer="deploy-dev@squareup.com"
 
 WORKDIR /usr/local/src/dex
-
-RUN apk add --no-cache --update alpine-sdk
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -22,7 +20,7 @@ COPY . .
 
 RUN make release-binary
 
-FROM alpine:3.13.5 AS gomplate
+FROM debian:buster AS gomplate
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -34,15 +32,7 @@ RUN wget -O /usr/local/bin/gomplate \
   "https://github.com/hairyhenderson/gomplate/releases/download/${GOMPLATE_VERSION}/gomplate_${TARGETOS:-linux}-${TARGETARCH:-amd64}${TARGETVARIANT}" \
   && chmod +x /usr/local/bin/gomplate
 
-
-FROM alpine:3.13.5
-
-# Dex connectors, such as GitHub and Google logins require root certificates.
-# Proper installations should manage those certificates, but it's a bad user
-# experience when this doesn't work out of the box.
-#
-# OpenSSL is required so wget can query HTTPS endpoints for health checking.
-RUN apk add --no-cache --update ca-certificates openssl
+FROM gcr.io/sq-containers-production/base/runtime-centos7:latest AS sq-base-image
 
 RUN mkdir -p /var/dex
 RUN chown -R 1001:1001 /var/dex

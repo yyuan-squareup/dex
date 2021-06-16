@@ -1,5 +1,9 @@
 test_command: 'script/ci'
 retry_count: 1
-
 targets:
   - type: unit
+default_distributions:
+  - el7
+build_artifacts:
+  sq-dex:
+    deployable_container: square/Dockerfile
