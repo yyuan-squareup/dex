@@ -61,6 +61,9 @@ type Connector struct {
 type Config struct {
 	Issuer string
 
+	// An optional override for the user facing authorization_url endpoint used in discovery
+	AuthEndpoint string
+
 	// The backing persistence layer.
 	Storage storage.Storage
 
@@ -329,7 +332,7 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 	}
 	r.NotFoundHandler = http.NotFoundHandler()
 
-	discoveryHandler, err := s.discoveryHandler()
+	discoveryHandler, err := s.discoveryHandler(c)
 	if err != nil {
 		return nil, err
 	}

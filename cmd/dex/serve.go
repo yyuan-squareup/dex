@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"syscall"
@@ -303,6 +304,13 @@ func runServe(options serveOptions) error {
 		}
 		logger.Infof("config device requests valid for: %v", deviceRequests)
 		serverConfig.DeviceRequestsValidFor = deviceRequests
+	}
+	if c.AuthEndpoint != "" {
+		_, err := url.Parse(c.AuthEndpoint)
+		if err != nil {
+			return fmt.Errorf("invalid config value %s for auth endpoint: %s", c.AuthEndpoint, err)
+		}
+		serverConfig.AuthEndpoint = c.AuthEndpoint
 	}
 	refreshTokenPolicy, err := server.NewRefreshTokenPolicy(
 		logger,

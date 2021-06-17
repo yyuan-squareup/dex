@@ -85,10 +85,16 @@ type discovery struct {
 	Claims            []string `json:"claims_supported"`
 }
 
-func (s *Server) discoveryHandler() (http.HandlerFunc, error) {
+func (s *Server) discoveryHandler(c Config) (http.HandlerFunc, error) {
+	var authEndpoint string
+	if c.AuthEndpoint != "" {
+		authEndpoint = c.AuthEndpoint
+	} else {
+		authEndpoint = s.absURL("/auth")
+	}
 	d := discovery{
 		Issuer:            s.issuerURL.String(),
-		Auth:              s.absURL("/auth"),
+		Auth:              authEndpoint,
 		Token:             s.absURL("/token"),
 		Keys:              s.absURL("/keys"),
 		UserInfo:          s.absURL("/userinfo"),
