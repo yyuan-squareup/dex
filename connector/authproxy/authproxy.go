@@ -17,10 +17,14 @@ import (
 // Config holds the configuration parameters for a connector which returns an
 // identity with the HTTP header X-Remote-User as verified email.
 type Config struct {
-	UserHeader         string `json:"userHeader"`         // the header whose value is the user's email
-	UserGroupsBasePath string `json:"userGroupsBasePath"` // base path to an endpoint where Dex can find Group claims for the user.
+	// the header whose value is the user's email
+	UserHeader string `json:"userHeader"`
+	// an optional base path to an endpoint where Dex can find Group claims for the user.
 	// the username will be appended to the end of the base path with leading `/` if none exists
 	// ie. a basepath of "localhost/api/roles" becomes "localhost/api/roles/johndoe"
+	UserGroupsBasePath string `json:"userGroupsBasePath"`
+	// an optional callback url override
+	CallbackURL string `json:"callbackURL"`
 }
 
 // Open returns an authentication strategy which requires no user interaction.
@@ -33,6 +37,7 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 	return &callback{
 		userHeader:         userHeader,
 		userGroupsBasePath: c.UserGroupsBasePath,
+		callbackURL:        c.CallbackURL,
 		logger:             logger,
 		pathSuffix:         "/" + id,
 	}, nil
@@ -43,12 +48,16 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 type callback struct {
 	userHeader         string
 	userGroupsBasePath string
+	callbackURL        string
 	logger             log.Logger
 	pathSuffix         string
 }
 
 // LoginURL returns the URL to redirect the user to login with.
 func (m *callback) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
+	if m.callbackURL != "" {
+		callbackURL = m.callbackURL
+	}
 	u, err := url.Parse(callbackURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse callbackURL %q: %v", callbackURL, err)
