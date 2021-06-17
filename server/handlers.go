@@ -86,11 +86,9 @@ type discovery struct {
 }
 
 func (s *Server) discoveryHandler(c Config) (http.HandlerFunc, error) {
-	var authEndpoint string
+	authEndpoint := s.absURL("/auth")
 	if c.AuthEndpoint != "" {
 		authEndpoint = c.AuthEndpoint
-	} else {
-		authEndpoint = s.absURL("/auth")
 	}
 	d := discovery{
 		Issuer:            s.issuerURL.String(),
