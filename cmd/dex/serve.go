@@ -398,6 +398,7 @@ func runServe(options serveOptions) error {
 		server := &http.Server{
 			Handler: serv,
 		}
+		server.SetKeepAlivesEnabled(false)
 		defer server.Close()
 
 		group.Add(func() error {
